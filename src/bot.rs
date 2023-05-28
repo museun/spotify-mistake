@@ -133,128 +133,128 @@ impl Bot {
         user_id: &UserIdRef,
         msg_id: &MsgIdRef,
     ) -> bool {
-        if let Some(parent_msg_id) = msg.reply_parent_msg_id() {
-            let mut remove = false;
-            if let Some(selection) = self
-                .selection
-                .get_mut(user_id)
-                .filter(|sel| sel.msg_id == parent_msg_id)
-            {
-                struct Index(usize);
-                impl std::str::FromStr for Index {
-                    type Err = &'static str;
+        let Some(parent_msg_id) = msg.reply_parent_msg_id() else { return false };
 
-                    fn from_str(s: &str) -> Result<Self, Self::Err> {
-                        s.strip_prefix('#')
-                            .unwrap_or_else(|| s.trim())
-                            .parse()
-                            .map(Self)
-                            .map_err(|_| "invalid selection")
-                    }
+        let mut remove = false;
+        if let Some(selection) = self
+            .selection
+            .get_mut(user_id)
+            .filter(|sel| sel.msg_id == parent_msg_id)
+        {
+            struct Index(usize);
+            impl std::str::FromStr for Index {
+                type Err = &'static str;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    s.strip_prefix('#')
+                        .unwrap_or_else(|| s.trim())
+                        .parse()
+                        .map(Self)
+                        .map_err(|_| "invalid selection")
                 }
+            }
 
-                enum Reply {
-                    Add,
-                    More,
-                    Select(usize),
+            enum Reply {
+                Add,
+                More,
+                Select(usize),
+            }
+
+            impl std::str::FromStr for Reply {
+                type Err = &'static str;
+
+                fn from_str(s: &str) -> Result<Self, Self::Err> {
+                    s.trim()
+                        .splitn(2, ' ')
+                        .last()
+                        .map(|s| match s {
+                            "add" => Ok(Self::Add),
+                            "more" => Ok(Self::More),
+                            s => s
+                                .parse()
+                                .map(|Index(index)| Self::Select(index.saturating_sub(1))),
+                        })
+                        .transpose()?
+                        .ok_or("invalid selection")
                 }
+            }
 
-                impl std::str::FromStr for Reply {
-                    type Err = &'static str;
-
-                    fn from_str(s: &str) -> Result<Self, Self::Err> {
-                        s.trim()
-                            .splitn(2, ' ')
-                            .last()
-                            .map(|s| match s {
-                                "add" => Ok(Self::Add),
-                                "more" => Ok(Self::More),
-                                s => s
-                                    .parse()
-                                    .map(|Index(index)| Self::Select(index.saturating_sub(1))),
-                            })
-                            .transpose()?
-                            .ok_or("invalid selection")
-                    }
+            let reply: Reply = match msg.data.parse() {
+                Ok(reply) => reply,
+                Err(err) => {
+                    self.writer.reply(parent_msg_id, err);
+                    return true;
                 }
+            };
 
-                let reply: Reply = match msg.data.parse() {
-                    Ok(reply) => reply,
-                    Err(err) => {
-                        self.writer.reply(parent_msg_id, err);
-                        return true;
+            macro_rules! print_menu {
+                () => {
+                    for (index, item) in selection
+                        .items
+                        .iter()
+                        .enumerate()
+                        .skip(selection.offset)
+                        .take(3)
+                    {
+                        let data = format!(
+                            "#{index} {name} by {artist}",
+                            index = index + 1,
+                            name = item.name,
+                            artist = item.artist
+                        );
+                        self.writer.reply(parent_msg_id, data);
                     }
+                    selection.offset += 3;
                 };
+            }
 
-                macro_rules! print_menu {
-                    () => {
-                        for (index, item) in selection
-                            .items
-                            .iter()
-                            .enumerate()
-                            .skip(selection.offset)
-                            .take(3)
-                        {
-                            let data = format!(
-                                "#{index} {name} by {artist}",
-                                index = index + 1,
-                                name = item.name,
-                                artist = item.artist
-                            );
-                            self.writer.reply(parent_msg_id, data);
-                        }
-                        selection.offset += 3;
-                    };
+            let item = match reply {
+                Reply::Add => &selection.items[0],
+                Reply::More => {
+                    print_menu!();
+                    return true;
                 }
-
-                let item = match reply {
-                    Reply::Add => &selection.items[0],
-                    Reply::More => {
-                        print_menu!();
-                        return true;
-                    }
-                    Reply::Select(index) => {
-                        let Some(item) = selection.items.get(index) else {
+                Reply::Select(index) => {
+                    let Some(item) = selection.items.get(index) else {
                             print_menu!();
                             return true;
                         };
-                        item
-                    }
-                };
-
-                let id = SpotifyId::from_uri(&item.id).expect("valid id");
-
-                let req = history::HistoryItem {
-                    id,
-                    user: Cow::Owned(twitch::User {
-                        id: user_id.to_owned(),
-                        color: msg
-                            .color()
-                            .map_or(Color32::WHITE, |twitch_message::Color(r, g, b)| {
-                                Color32::from_rgb(r, g, b)
-                            }),
-                        name: msg.sender.clone().into_owned(),
-                    }),
+                    item
                 }
-                .lookup(&self.session)
-                .await;
+            };
 
-                let data = format!(
-                    "added {name} by {artist} \
+            let id = SpotifyId::from_uri(&item.id).expect("valid id");
+
+            let req = history::HistoryItem {
+                id,
+                user: Cow::Owned(twitch::User {
+                    id: user_id.to_owned(),
+                    color: msg
+                        .color()
+                        .map_or(Color32::WHITE, |twitch_message::Color(r, g, b)| {
+                            Color32::from_rgb(r, g, b)
+                        }),
+                    name: msg.sender.clone().into_owned(),
+                }),
+            }
+            .lookup(&self.session)
+            .await;
+
+            let data = format!(
+                "added {name} by {artist} \
                      @ https://open.spotify.com/track/{id}",
-                    name = req.track.name,
-                    artist = req.track.artists.iter().map(|c| &c.name).join(", "),
-                    id = req.track.id.to_base62().unwrap(),
-                );
-                self.writer.reply(msg_id, data);
+                name = req.track.name,
+                artist = req.track.artists.iter().map(|c| &c.name).join(", "),
+                id = req.track.id.to_base62().unwrap(),
+            );
+            self.writer.reply(parent_msg_id, data);
 
-                let _ = self.produce.send(SynthEvent::Organic(req));
-                remove = true
-            }
+            let _ = self.produce.send(SynthEvent::Organic(req));
+            remove = true
+        }
 
-            if remove {
-                self.selection.remove(user_id);
-            }
+        if remove {
+            self.selection.remove(user_id);
         }
 
         false
