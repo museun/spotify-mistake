@@ -19,21 +19,16 @@ mod bot;
 mod control;
 mod ext;
 mod history;
-mod history_view;
 mod image_cache;
-mod image_view;
-mod list_view;
-mod request_view;
-
 mod player_state;
 mod progress;
-mod queue_view;
 mod request;
 mod scrollable;
 mod spotify_lyrics;
-mod tab_view;
+mod tab_selection;
 mod twitch;
 mod util;
+mod views;
 mod volume_state;
 
 use crate::{request::Request, volume_state::VolumeState};

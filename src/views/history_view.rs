@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use crate::{
     history,
-    list_view::{Action, ListView},
+    views::list_view::{Action, ListView},
     Request,
 };
 

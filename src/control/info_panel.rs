@@ -1,7 +1,9 @@
 use egui::{vec2, Color32, Layout, Rect, Sense, TextStyle};
 
 use crate::{
-    image_cache::ImageCache, image_view::ImageView, request::Request, request_view::RequestView,
+    image_cache::ImageCache,
+    request::Request,
+    views::{ImageView, RequestView},
 };
 
 use super::lyrics_panel::LyricsPanel;

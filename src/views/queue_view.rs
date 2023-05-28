@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::{
-    list_view::{Action, ListView},
+    views::list_view::{Action, ListView},
     Request,
 };
 

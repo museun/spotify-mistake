@@ -1,11 +1,11 @@
 #[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TabView {
+pub enum TabSelection {
     #[default]
     Queue,
     History,
 }
 
-impl TabView {
+impl TabSelection {
     pub const fn label(&self) -> &'static str {
         match self {
             Self::Queue => "Queue",

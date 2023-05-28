@@ -1,7 +1,10 @@
 use egui::{Color32, ScrollArea, TextStyle};
 
 use crate::{
-    image_cache, image_view::ImageView, request_view::RequestView, util::format_duration, Request,
+    image_cache,
+    util::format_duration,
+    views::{ImageView, RequestView},
+    Request,
 };
 
 pub struct ListView<'a> {
@@ -35,8 +38,10 @@ impl<'a> ListView<'a> {
             // TODO use a table here
             for (i, next) in items.enumerate() {
                 ui.horizontal(|ui| {
+                    // TODO make this a context menu
                     buttons(ui, &mut add, next);
 
+                    // TODO make this a context menu
                     if ui.small_button("🚫").clicked() {
                         remove.replace(i);
                     }

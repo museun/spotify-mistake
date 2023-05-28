@@ -20,13 +20,13 @@ use crate::{
     bot::SynthEvent,
     ext::JoinWith,
     history::{self, History, HistoryItem},
-    history_view::HistoryView,
     image_cache::ImageCache,
-    list_view::ListView,
     player_state::{NextPlayingState, PlayerState},
-    queue_view::QueueView,
     request::Request,
-    tab_view::TabView,
+    tab_selection::TabSelection,
+    views::HistoryView,
+    views::ListView,
+    views::QueueView,
     volume_state::VolumeState,
 };
 
@@ -63,7 +63,7 @@ pub struct Control {
 
     always_on_top: bool,
     auto_play: bool,
-    tab_view: TabView,
+    tab_view: TabSelection,
 }
 
 impl Control {
@@ -116,7 +116,7 @@ impl Control {
 
             always_on_top: false,
             auto_play: false,
-            tab_view: TabView::default(),
+            tab_view: TabSelection::default(),
         })
     }
 
@@ -194,7 +194,7 @@ impl Control {
 
     fn display_tab_list(&mut self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
-            for tab_view in [TabView::Queue, TabView::History] {
+            for tab_view in [TabSelection::Queue, TabSelection::History] {
                 ui.selectable_value(&mut self.tab_view, tab_view, tab_view.label());
             }
         });
@@ -204,14 +204,14 @@ impl Control {
         };
 
         match self.tab_view {
-            TabView::Queue => {
+            TabSelection::Queue => {
                 QueueView {
                     list_view,
                     queue: &mut self.queue,
                 }
                 .display(ui);
             }
-            TabView::History => {
+            TabSelection::History => {
                 HistoryView {
                     list_view,
                     queue: &mut self.queue,

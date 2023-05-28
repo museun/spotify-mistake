@@ -8,8 +8,8 @@ use egui::{
 use librespot::playback::player::Player;
 
 use crate::{
-    ext::JoinWith, image_cache::ImageCache, image_view::ImageView, player_state::PlayerState,
-    progress::Progress, request::Request, scrollable::Scrollable, util::format_duration,
+    ext::JoinWith, image_cache::ImageCache, player_state::PlayerState, progress::Progress,
+    request::Request, scrollable::Scrollable, util::format_duration, views::ImageView,
     volume_state::VolumeState,
 };
 
