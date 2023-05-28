@@ -1,6 +1,8 @@
 use egui::{vec2, Color32, Layout, Rect, Sense, TextStyle};
 
-use crate::{image_cache::ImageCache, image_view::ImageView, request::Request};
+use crate::{
+    image_cache::ImageCache, image_view::ImageView, request::Request, request_view::RequestView,
+};
 
 use super::lyrics_panel::LyricsPanel;
 
@@ -26,14 +28,14 @@ impl<'a> InfoPanel<'a> {
                     }
                     .display(ui);
 
-                    self.request.display_active(
-                        ui,
-                        &fid,
+                    RequestView {
+                        request: self.request,
+                        fid: &fid,
                         space,
-                        Color32::WHITE,
-                        ui.visuals().text_color(),
-                        &self.request.user,
-                    );
+                        active: Color32::WHITE,
+                        inactive: ui.visuals().text_color(),
+                    }
+                    .display(ui);
                 })
                 .response;
 

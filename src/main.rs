@@ -23,6 +23,8 @@ mod history_view;
 mod image_cache;
 mod image_view;
 mod list_view;
+mod request_view;
+
 mod player_state;
 mod progress;
 mod queue_view;

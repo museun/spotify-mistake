@@ -1,6 +1,8 @@
-use egui::{Color32, CursorIcon, ScrollArea, TextStyle};
+use egui::{Color32, ScrollArea, TextStyle};
 
-use crate::{image_cache, image_view::ImageView, util::format_duration, Request};
+use crate::{
+    image_cache, image_view::ImageView, request_view::RequestView, util::format_duration, Request,
+};
 
 pub struct ListView<'a> {
     pub cache: &'a mut image_cache::ImageCache,
@@ -30,33 +32,33 @@ impl<'a> ListView<'a> {
 
             // TODO allow searching by user (e.g. click on user name and show all songs from them)
             // TODO allow reordering
+            // TODO use a table here
             for (i, next) in items.enumerate() {
                 ui.horizontal(|ui| {
-                    ui.group(|ui| {
-                        buttons(ui, &mut add, next);
+                    buttons(ui, &mut add, next);
 
-                        if ui.small_button("🚫").clicked() {
-                            remove.replace(i);
-                        }
+                    if ui.small_button("🚫").clicked() {
+                        remove.replace(i);
+                    }
 
-                        // TODO badge
-                        ui.colored_label(next.user.color, next.user.name.as_str())
-                            .on_hover_cursor(CursorIcon::Help)
-                            .on_hover_text(next.user.id.as_str());
-                    });
+                    ui.monospace(format_duration(next.track.duration as _));
 
-                    ui.group(|ui| {
-                        ui.monospace(format_duration(next.track.duration as _));
+                    ImageView {
+                        texture_id: next.image_id.and_then(|fid| self.cache.get(fid)),
+                        size: height,
+                    }
+                    .display(ui);
 
-                        ImageView {
-                            texture_id: next.image_id.and_then(|fid| self.cache.get(fid)),
-                            size: height,
-                        }
-                        .display(ui);
+                    RequestView {
+                        request: next,
+                        fid: &fid,
+                        space,
+                        active: Color32::WHITE,
+                        inactive: ui.visuals().text_color(),
+                    }
+                    .display(ui);
 
-                        next.layout(ui, &fid, space, Color32::WHITE, ui.visuals().text_color());
-                        ui.allocate_space(ui.available_size_before_wrap());
-                    });
+                    ui.allocate_space(ui.available_size_before_wrap());
                 });
             }
 
