@@ -52,7 +52,6 @@ impl Writer {
     }
 }
 
-// TODO provide an abstraction for this (and its Sender)
 pub enum WriteKind {
     Reply { id: MsgId, data: String },
     Say { data: String },

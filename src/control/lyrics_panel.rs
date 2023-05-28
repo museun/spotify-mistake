@@ -13,18 +13,21 @@ impl<'a> LyricsPanel<'a> {
             for line in &*self.request.lyrics.lyrics {
                 let mut should_scroll = false;
 
-                let color =
-                    if let Some(elapsed) = self.elapsed.filter(|_| self.request.lyrics.synced) {
-                        (line.start..=line.end)
-                            .contains(&(elapsed as _))
-                            .then(|| {
-                                should_scroll = true;
-                                Color32::WHITE
-                            })
-                            .unwrap_or_else(|| ui.visuals().text_color())
-                    } else {
-                        ui.visuals().text_color()
-                    };
+                let color = self
+                    .elapsed
+                    .filter(|_| self.request.lyrics.synced)
+                    .map_or_else(
+                        || ui.visuals().text_color(),
+                        |elapsed| {
+                            (line.start..=line.end)
+                                .contains(&(elapsed as _))
+                                .then(|| {
+                                    should_scroll = true;
+                                    Color32::WHITE
+                                })
+                                .unwrap_or_else(|| ui.visuals().text_color())
+                        },
+                    );
 
                 let resp = ui.add(Label::new(RichText::new(&line.data).color(color)).wrap(true));
 

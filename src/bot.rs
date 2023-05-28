@@ -107,12 +107,9 @@ impl Bot {
         let _ = self.requests.send(tx);
         let resp = rx.await.expect("gui is running");
 
-        let resp = match resp {
-            Some(resp) => resp,
-            None => {
-                self.writer.reply(msg_id, "nothing is playing");
-                return true;
-            }
+        let Some(resp) = resp else {
+            self.writer.reply(msg_id, "nothing is playing");
+            return true
         };
 
         self.writer.say(format!(
