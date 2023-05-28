@@ -140,8 +140,8 @@ impl Bot {
                 .get_mut(user_id)
                 .filter(|sel| sel.msg_id == parent_msg_id)
             {
-                struct S(usize);
-                impl std::str::FromStr for S {
+                struct Index(usize);
+                impl std::str::FromStr for Index {
                     type Err = &'static str;
 
                     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -171,7 +171,7 @@ impl Bot {
                                 "more" => Ok(Self::More),
                                 s => s
                                     .parse()
-                                    .map(|S(index)| Self::Select(index.saturating_sub(1))),
+                                    .map(|Index(index)| Self::Select(index.saturating_sub(1))),
                             })
                             .transpose()?
                             .ok_or("invalid selection")
