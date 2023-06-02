@@ -96,7 +96,6 @@ impl Bot {
             }
 
             let Some(req) = msg.data.strip_prefix("~req ") else { continue };
-
             if let Some(track_id) = Self::try_parse(req, msg_id, &self.writer) {
                 self.handle_song_req(&msg, msg_id, track_id).await;
                 continue;
@@ -185,8 +184,7 @@ impl Bot {
                         .last()
                         .map(|s| match s {
                             "add" => Ok(Self::Add),
-                            // TODO allow more things to get around the message limit
-                            "more" => Ok(Self::More),
+                            "list" | "more" => Ok(Self::More),
                             s => s
                                 .parse()
                                 .map(|Index(index)| Self::Select(index.saturating_sub(1))),
@@ -416,10 +414,8 @@ impl Bot {
             })
             .enumerate()
         {
-            // TODO allow things other than 'more' to get around message limit
-            const HEADER: &str =
-                r#"I found the following, reply with "add" to add it, \
-                or "more" to get more."#;
+            const HEADER: &str = r#"I found the following, reply with "add" to add it, \
+                or "more" (or "list") to get more."#;
 
             if i == 0 {
                 let data = format!(

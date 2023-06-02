@@ -7,7 +7,6 @@ pub enum NextPlayingState {
     StopPlaying,
 }
 
-// TODO this isn't needed, we can just wrap their state and provide our methods on it
 #[derive(Default)]
 pub enum PlayerState {
     #[default]

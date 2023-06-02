@@ -18,7 +18,6 @@ impl Default for SpotifyLyrics {
 }
 
 impl SpotifyLyrics {
-    // TODO this should extend the 'last' lyric to the duration
     pub fn fix_up(lyrics: Lyrics, max_dur_millis: usize) -> Self {
         let synced = matches!(lyrics.lyrics.sync_type, SyncType::LineSynced);
 

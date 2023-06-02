@@ -206,7 +206,6 @@ impl Control {
         while let Ok(req) = self.events.try_recv() {
             let req = match req {
                 SynthEvent::Synthetic(req) => req,
-                // TODO check for duplicates
                 SynthEvent::Organic(req) => {
                     let place = if self.history_fut.is_resolved() {
                         self.db.add_history(&req);
@@ -472,7 +471,7 @@ impl eframe::App for Control {
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         storage.set_string("volume", format!("{:.2}", self.volume.get()))
-        // TODO save 'auto' state'
+        // TODO save 'auto' state
         // TODO save 'on-top' state
     }
 

@@ -54,7 +54,6 @@ impl Connection {
         )
     }
 
-    // TODO this might be annoying
     pub fn queue<'a>(&self, item: impl Into<Item<'a>> + ?Sized) {
         let Self { conn, .. } = self;
 
