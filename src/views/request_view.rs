@@ -61,7 +61,7 @@ impl<'a> RequestView<'a> {
             .add(Label::new(job).wrap(true))
             .interact(Sense::click())
             .on_hover_cursor(CursorIcon::PointingHand)
-            .on_hover_text(self.request.user.id.as_str());
+            .on_hover_text_at_pointer(self.request.user.id.as_str());
 
         if resp.clicked_by(egui::PointerButton::Primary) {
             ui.output_mut(|o| {

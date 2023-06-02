@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 
 use crate::{
+    db,
     views::list_view::{Action, ListView},
     Request,
 };
@@ -8,6 +9,7 @@ use crate::{
 pub struct QueueView<'a> {
     pub list_view: ListView<'a>,
     pub queue: &'a mut VecDeque<Request>,
+    pub db: &'a db::Connection,
 }
 
 impl<'a> QueueView<'a> {
@@ -19,7 +21,9 @@ impl<'a> QueueView<'a> {
             |ui, add, req| {},
             self.queue.iter(),
         ) {
-            self.queue.remove(index);
+            if let Some(item) = self.queue.remove(index) {
+                self.db.remove_from_queue(&item);
+            }
         }
     }
 }

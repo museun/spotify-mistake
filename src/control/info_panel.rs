@@ -1,4 +1,5 @@
-use egui::{vec2, Color32, Layout, Rect, Sense, TextStyle};
+use egui::{vec2, Layout, Rect, Sense, TextStyle};
+use librespot::playback::player::Player;
 
 use crate::{
     image_cache::ImageCache,
@@ -11,6 +12,7 @@ use super::lyrics_panel::LyricsPanel;
 pub struct InfoPanel<'a> {
     pub request: &'a Request,
     pub cache: &'a mut ImageCache,
+    pub player: &'a Player,
     pub elapsed: Option<usize>,
     pub height: f32,
 }
@@ -30,11 +32,14 @@ impl<'a> InfoPanel<'a> {
                     }
                     .display(ui);
 
+                    // XXX this is a normal title by artist (user) view
+                    // we probably want a scrolling title here
+
                     RequestView {
                         request: self.request,
                         fid: &fid,
                         space,
-                        active: Color32::WHITE,
+                        active: ui.visuals().strong_text_color(),
                         inactive: ui.visuals().text_color(),
                     }
                     .display(ui);
@@ -51,8 +56,6 @@ impl<'a> InfoPanel<'a> {
                 Sense::hover(),
             );
 
-            // TODO display song title here, and who requested it
-
             let mut ui = ui.child_ui(resp.rect, Layout::default());
             if self.request.lyrics.lyrics.is_empty() {
                 // TODO center this
@@ -64,6 +67,7 @@ impl<'a> InfoPanel<'a> {
                 LyricsPanel {
                     request: self.request,
                     elapsed: self.elapsed,
+                    player: self.player,
                 }
                 .display(ui);
             });

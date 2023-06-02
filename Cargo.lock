@@ -82,7 +82,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8512c9117059663fb5606788fbca3619e2a91dac0e3fe516242eab1fa6be5e44"
 dependencies = [
  "alsa-sys",
- "bitflags",
+ "bitflags 1.3.2",
  "libc",
  "nix 0.24.3",
 ]
@@ -114,7 +114,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c77a0045eda8b888c76ea473c2b0515ba6f471d318f8927c5c72240937035a6"
 dependencies = [
  "android-properties",
- "bitflags",
+ "bitflags 1.3.2",
  "cc",
  "jni-sys",
  "libc",
@@ -130,6 +130,12 @@ name = "android-properties"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
+
+[[package]]
+name = "android-tzdata"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e999941b234f3131b00bc13c22d06e8c5ff726d1b6318ac7eb276997bbb4fef0"
 
 [[package]]
 name = "android_system_properties"
@@ -266,7 +272,7 @@ version = "0.64.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4243e6031260db77ede97ad86c27e501d646a27ab57b59a574f725d98ab1fb4"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cexpr",
  "clang-sys",
  "lazy_static",
@@ -285,6 +291,12 @@ name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
+
+[[package]]
+name = "bitflags"
+version = "2.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6776fc96284a0bb647b615056fc496d1fe1644a7ab01829818a6d91cae888b84"
 
 [[package]]
 name = "block"
@@ -418,13 +430,13 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.24"
+version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e3c5919066adf22df73762e50cffcde3a758f2a848b113b586d1f86728b673b"
+checksum = "ec837a71355b28f6556dbd569b37b3f363091c0bd4b2e735674521b4c5fd9bc5"
 dependencies = [
+ "android-tzdata",
  "iana-time-zone",
  "js-sys",
- "num-integer",
  "num-traits",
  "serde",
  "time 0.1.45",
@@ -470,7 +482,7 @@ version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f425db7937052c684daec3bd6375c8abe2d146dca4b8b143d6db777c39138f3a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "block",
  "cocoa-foundation",
  "core-foundation",
@@ -486,7 +498,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "931d3837c286f56e3c58423ce4eba12d08db2374461a785c86f672b08b5650d6"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "block",
  "core-foundation",
  "core-graphics-types",
@@ -545,7 +557,7 @@ version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2581bbab3b8ffc6fcbd550bf46c355135d16e9ff2a6ea032ad6b9bf1d7efe4fb"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "core-foundation",
  "core-graphics-types",
  "foreign-types",
@@ -558,7 +570,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a68b68b3446082644c91ac778bf50cd4104bfb002b5a6a7c44cca5a2c70788b"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "core-foundation",
  "foreign-types",
  "libc",
@@ -570,7 +582,7 @@ version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb17e2d1795b1996419648915df94bc7103c28f7b48062d7acf4652fc371b2ff"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "core-foundation-sys 0.6.2",
  "coreaudio-sys",
 ]
@@ -930,6 +942,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4443176a9f2c162692bd3d352d745ef9413eec5782a80d8fd6f8a1ac692a07f7"
+
+[[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1153,9 +1177,9 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 
 [[package]]
 name = "glow"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e007a07a24de5ecae94160f141029e9a347282cfe25d1d58d85d845cf3130f1"
+checksum = "807edf58b70c0b5b2181dd39fe1839dbdb3ba02645630dc5f753e23da307f762"
 dependencies = [
  "js-sys",
  "slotmap",
@@ -1169,7 +1193,7 @@ version = "0.30.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62f9b771a65f0a1e3ddb6aa16f867d87dc73c922411c255e6c4ab7f6d45c7327"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cfg_aliases",
  "cgl",
  "core-foundation",
@@ -1279,13 +1303,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashlink"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0761a1b9491c4f2e3d66aa0f62d0fba0af9a0e2852e4d48ea506632a4b56e6aa"
+dependencies = [
+ "hashbrown 0.13.2",
+]
+
+[[package]]
 name = "headers"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f3e372db8e5c0d213e0cd0b9be18be2aca3d44cf2fe30a9d46a65581cd454584"
 dependencies = [
  "base64 0.13.1",
- "bitflags",
+ "bitflags 1.3.2",
  "bytes",
  "headers-core",
  "http",
@@ -1751,7 +1784,7 @@ dependencies = [
 [[package]]
 name = "librespot"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "env_logger",
  "futures-util",
@@ -1775,7 +1808,7 @@ dependencies = [
 [[package]]
 name = "librespot-audio"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "aes",
  "byteorder",
@@ -1795,7 +1828,7 @@ dependencies = [
 [[package]]
 name = "librespot-connect"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "form_urlencoded",
  "futures-util",
@@ -1815,7 +1848,7 @@ dependencies = [
 [[package]]
 name = "librespot-core"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "aes",
  "base64 0.21.2",
@@ -1866,7 +1899,7 @@ dependencies = [
 [[package]]
 name = "librespot-discovery"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "aes",
  "base64 0.21.2",
@@ -1890,7 +1923,7 @@ dependencies = [
 [[package]]
 name = "librespot-metadata"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "async-trait",
  "byteorder",
@@ -1908,7 +1941,7 @@ dependencies = [
 [[package]]
 name = "librespot-playback"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "byteorder",
  "cpal",
@@ -1931,10 +1964,21 @@ dependencies = [
 [[package]]
 name = "librespot-protocol"
 version = "0.5.0-dev"
-source = "git+https://github.com/librespot-org/librespot?rev=c964102a349589d644baef5f43a566d6d1e151f1#c964102a349589d644baef5f43a566d6d1e151f1"
+source = "git+https://github.com/librespot-org/librespot?rev=4d402e690c67457ca2d462670db39330bbceb4cf#4d402e690c67457ca2d462670db39330bbceb4cf"
 dependencies = [
  "protobuf",
  "protobuf-codegen",
+]
+
+[[package]]
+name = "libsqlite3-sys"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afc22eff61b133b115c6e8c74e818c628d6d5e7a502afea6f64dee076dd94326"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]
@@ -1955,12 +1999,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.17"
+version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
-dependencies = [
- "cfg-if",
-]
+checksum = "518ef76f2f87365916b142844c16d8fefd85039bc5699050210a7778ee1cd1de"
 
 [[package]]
 name = "mach2"
@@ -2054,14 +2095,14 @@ dependencies = [
 
 [[package]]
 name = "mio"
-version = "0.8.6"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b9d9a46eff5b4ff64b45a9e316a6d1e0bc719ef429cbec4dc630684212bfdf9"
+checksum = "927a765cd3fc26206e66b296465fa9d3e5ab003e651c1b3c060e7956d96b19d2"
 dependencies = [
  "libc",
  "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
- "windows-sys 0.45.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -2097,7 +2138,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "451422b7e4718271c8b5b3aadf5adedba43dc76312454b387e98fae0fc951aa0"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "jni-sys",
  "ndk-sys",
  "num_enum",
@@ -2126,7 +2167,7 @@ version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f3790c00a0150112de0f4cd161e3d7fc4b2d8a5542ffc35f099a2562aecb35c"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cc",
  "cfg-if",
  "libc",
@@ -2139,7 +2180,7 @@ version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fa52e972a9a719cecb6864fb88568781eb706bac2cd1d4f04a648542dbf78069"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cfg-if",
  "libc",
  "memoffset",
@@ -2152,7 +2193,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f346ff70e7dbfd675fe90590b92d59ef2de15a8779ae305ebcbfd3f0caf59be4"
 dependencies = [
  "autocfg",
- "bitflags",
+ "bitflags 1.3.2",
  "cfg-if",
  "libc",
  "memoffset",
@@ -2397,17 +2438,17 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.17.1"
+version = "1.17.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
+checksum = "9670a07f94779e00908f3e686eab508878ebb390ba6e604d3a284c00e8d0487b"
 
 [[package]]
 name = "openssl"
-version = "0.10.52"
+version = "0.10.54"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01b8574602df80f7b85fdfc5392fa884a4e3b3f4f35402c070ab34c3d3f78d56"
+checksum = "69b3f656a17a6cbc115b5c7a40c616947d213ba182135b014d6051b73ab6f019"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "cfg-if",
  "foreign-types",
  "libc",
@@ -2435,9 +2476,9 @@ checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.87"
+version = "0.9.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e17f59264b2809d77ae94f0e1ebabc434773f370d6ca667bd223ea10e06cc7e"
+checksum = "c2ce0f250f34a308dcfdbb351f511359857d4ed2134ba715a4eadd46e1ffd617"
 dependencies = [
  "cc",
  "libc",
@@ -2575,7 +2616,7 @@ version = "0.17.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaeebc51f9e7d2c150d3f3bfeb667f2aa985db5ef1e3d212847bdedb488beeaa"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "crc32fast",
  "fdeflate",
  "flate2",
@@ -2739,7 +2780,7 @@ version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -2748,7 +2789,7 @@ version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "567664f262709473930a4bf9e51bf2ebf3348f2e748ccc50dea20646858f8f29"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -2848,7 +2889,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300a51053b1cb55c80b7a9fde4120726ddf25ca241a1cbb926626f62fb136bff"
 dependencies = [
  "base64 0.13.1",
- "bitflags",
+ "bitflags 1.3.2",
  "serde",
 ]
 
@@ -2954,6 +2995,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "549b9d036d571d42e6e85d1c1425e2ac83491075078ca9a15be021c56b1641f2"
+dependencies = [
+ "bitflags 2.3.1",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink",
+ "libsqlite3-sys",
+ "smallvec",
+ "time 0.3.21",
+ "uuid",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2971,7 +3028,7 @@ version = "0.37.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acf8729d8542766f1b2cf77eb034d52f40d375bb8b615d0b147089946e16613d"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "errno",
  "io-lifetimes",
  "libc",
@@ -3128,7 +3185,7 @@ version = "2.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fc758eb7bffce5b308734e9b0c1468893cae9ff70ebf13e7090be8dcbcc83a8"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "core-foundation",
  "core-foundation-sys 0.8.4",
  "libc",
@@ -3292,7 +3349,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f307c47d32d2715eb2e0ece5589057820e0e5e70d07c247d1063e844e107f454"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "calloop",
  "dlib",
  "lazy_static",
@@ -3355,12 +3412,15 @@ dependencies = [
  "librespot",
  "log",
  "rspotify",
+ "rusqlite",
  "serde",
  "serde_json",
  "simple_env_load",
+ "time 0.3.21",
  "tokio",
  "twitch_message",
  "url",
+ "uuid",
 ]
 
 [[package]]
@@ -3405,9 +3465,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "symphonia"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3671dd6f64f4f9d5c87179525054cfc1f60de23ba1f193bd6ceab812737403f1"
+checksum = "62e48dba70095f265fdb269b99619b95d04c89e619538138383e63310b14d941"
 dependencies = [
  "lazy_static",
  "symphonia-bundle-mp3",
@@ -3419,11 +3479,11 @@ dependencies = [
 
 [[package]]
 name = "symphonia-bundle-mp3"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55a0846e7a2c9a8081ff799fc83a975170417ad2a143f644a77ec2e3e82a2b73"
+checksum = "0f31d7fece546f1e6973011a9eceae948133bbd18fd3d52f6073b1e38ae6368a"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "lazy_static",
  "log",
  "symphonia-core",
@@ -3432,9 +3492,9 @@ dependencies = [
 
 [[package]]
 name = "symphonia-codec-vorbis"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dfed6f7b6bfa21d7cef1acefc8eae5db80df1608a1aca91871b07cbd28d7b74"
+checksum = "3953397e3506aa01350c4205817e4f95b58d476877a42f0458d07b665749e203"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3443,12 +3503,12 @@ dependencies = [
 
 [[package]]
 name = "symphonia-core"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b9567e2d8a5f866b2f94f5d366d811e0c6826babcff6d37de9e1a6690d38869"
+checksum = "f7c73eb88fee79705268cc7b742c7bc93a7b76e092ab751d0833866970754142"
 dependencies = [
  "arrayvec",
- "bitflags",
+ "bitflags 1.3.2",
  "bytemuck",
  "lazy_static",
  "log",
@@ -3456,9 +3516,9 @@ dependencies = [
 
 [[package]]
 name = "symphonia-format-ogg"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "474df6e86b871dcb56913130bada1440245f483057c4a2d8a2981455494c4439"
+checksum = "9bf1a00ccd11452d44048a0368828040f778ae650418dbd9d8765b7ee2574c8d"
 dependencies = [
  "log",
  "symphonia-core",
@@ -3468,9 +3528,9 @@ dependencies = [
 
 [[package]]
 name = "symphonia-metadata"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acd35c263223ef6161000be79b124a75de3e065eea563bf3ef169b3e94c7bb2e"
+checksum = "89c3e1937e31d0e068bbe829f66b2f2bfaa28d056365279e0ef897172c3320c0"
 dependencies = [
  "encoding_rs",
  "lazy_static",
@@ -3480,9 +3540,9 @@ dependencies = [
 
 [[package]]
 name = "symphonia-utils-xiph"
-version = "0.5.2"
+version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce340a6c33ac06cb42de01220308ec056e8a2a3d5cc664aaf34567392557136b"
+checksum = "a450ca645b80d69aff8b35576cbfdc7f20940b29998202aab910045714c951f8"
 dependencies = [
  "symphonia-core",
  "symphonia-metadata",
@@ -3927,6 +3987,7 @@ checksum = "345444e32442451b267fc254ae85a209c64be56d2890e601a0c37ff0c3c5ecd2"
 dependencies = [
  "getrandom",
  "rand",
+ "serde",
 ]
 
 [[package]]
@@ -4062,7 +4123,7 @@ version = "0.29.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f3b068c05a039c9f755f881dc50f01732214f5685e379829759088967c46715"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "downcast-rs",
  "libc",
  "nix 0.24.3",
@@ -4101,7 +4162,7 @@ version = "0.29.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b950621f9354b322ee817a23474e479b34be96c2e909c14f7bc0100e9a970bc6"
 dependencies = [
- "bitflags",
+ "bitflags 1.3.2",
  "wayland-client",
  "wayland-commons",
  "wayland-scanner",
@@ -4411,7 +4472,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "866db3f712fffba75d31bf0cdecf357c8aeafd158c5b7ab51dba2a2b2d47f196"
 dependencies = [
  "android-activity",
- "bitflags",
+ "bitflags 1.3.2",
  "cfg_aliases",
  "core-foundation",
  "core-graphics",

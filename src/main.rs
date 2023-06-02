@@ -31,7 +31,11 @@ mod util;
 mod views;
 mod volume_state;
 
+mod db;
+
 use crate::{request::Request, volume_state::VolumeState};
+
+const APP_ID: &str = "0D29F111-0601-4C75-901E-5C6341D518B1";
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -45,7 +49,8 @@ async fn main() -> anyhow::Result<()> {
     let config = twitch::Config {
         name: get("TWITCH_NAME")?,
         pass: get("TWITCH_PASS")?,
-        channel: get("TWITCH_CHANNEL")?,
+        main_channel: get("TWITCH_MAIN_CHANNEL")?,
+        spam_channel: get("TWITCH_SPAM_CHANNEL")?,
     };
 
     let spotify_api_client = rspotify::ClientCredsSpotify::with_config(
@@ -72,7 +77,10 @@ async fn main() -> anyhow::Result<()> {
     );
 
     let session = Session::new(
-        SessionConfig::default(),
+        SessionConfig {
+            device_id: APP_ID.to_string(),
+            ..SessionConfig::default()
+        },
         Cache::new(Some("./librespot/"), None, None, None).map(Some)?,
     );
 
@@ -96,13 +104,17 @@ async fn main() -> anyhow::Result<()> {
 
     let writer = twitch::Writer::new(writer);
 
-    tokio::spawn(async move { twitch::connect(config, events_tx, writer_rx).await });
+    tokio::spawn({
+        let config = config.clone();
+        async move { twitch::connect(config, events_tx, writer_rx).await }
+    });
 
     let (tx, rx) = mpsc::unbounded_channel();
     let (req_tx, req_rx) = mpsc::unbounded_channel();
 
     tokio::spawn(
         bot::Bot::new(
+            config,
             events,
             writer,
             tx.clone(),

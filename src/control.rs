@@ -1,9 +1,6 @@
-use std::{
-    collections::VecDeque,
-    time::{Duration, Instant},
-};
+use std::{collections::VecDeque, time::Duration};
 
-use egui::{Align, CentralPanel, FontDefinitions, FontTweak, Layout};
+use egui::{Align, CentralPanel, FontDefinitions, FontTweak, Layout, Slider, TextStyle, Visuals};
 
 use librespot::{
     core::session::Session,
@@ -18,15 +15,16 @@ use tokio::sync::{
 use crate::{
     async_adapter::Fut,
     bot::SynthEvent,
+    db,
     ext::JoinWith,
-    history::{self, History, HistoryItem},
+    history::History,
     image_cache::ImageCache,
     player_state::{NextPlayingState, PlayerState},
     request::Request,
     tab_selection::TabSelection,
     views::HistoryView,
-    views::ListView,
-    views::QueueView,
+    views::{ImageView, QueueView},
+    views::{ListView, RequestView},
     volume_state::VolumeState,
 };
 
@@ -38,8 +36,7 @@ mod lyrics_panel;
 mod player_control;
 
 struct Active {
-    // TODO we need an FSM for resuming from a pause state
-    start: Option<Instant>,
+    play_pos: Option<Duration>,
     request: Request,
 }
 
@@ -64,6 +61,8 @@ pub struct Control {
     always_on_top: bool,
     auto_play: bool,
     tab_view: TabSelection,
+
+    db: db::Connection,
 }
 
 impl Control {
@@ -78,21 +77,21 @@ impl Control {
     ) -> Box<dyn eframe::App> {
         cc.egui_ctx.set_pixels_per_point(2.0);
 
+        // TODO get this from the configuration (or just use dirs)
+        let db = db::Connection::open("history.db");
         Self::load_fonts(&cc.egui_ctx);
 
-        let history_fut = std::fs::read_to_string("history.json")
-            .ok()
-            .map(|s| History::load(&s, &session))
-            .unwrap_or_default();
+        let history_fut = History::load(&session, &db, replay);
 
         if let Some(storage) = cc.storage {
-            Self::load_saved_state(storage, &session, replay);
             if let Some(factor) = storage
                 .get_string("volume")
                 .and_then(|c| c.parse::<f64>().ok())
             {
                 volume.set(factor);
             }
+            // TODO load 'auto' state
+            // TODO load 'ontop' state
         }
 
         Box::new(Self {
@@ -117,39 +116,18 @@ impl Control {
             always_on_top: false,
             auto_play: false,
             tab_view: TabSelection::default(),
+
+            db,
         })
     }
 
-    fn load_saved_state(
-        storage: &dyn eframe::Storage,
+    fn populate_from_db(
+        db: &db::Connection,
         session: &Session,
         replay: UnboundedSender<SynthEvent<Request>>,
     ) {
-        #[derive(::serde::Deserialize)]
-        struct State {
-            active: Option<HistoryItem<'static>>,
-            queue: Vec<HistoryItem<'static>>,
-        }
-
-        let send_events = move |items: Vec<Request>| {
-            items
-                .into_iter()
-                .map(SynthEvent::Synthetic)
-                .try_for_each(|item| replay.send(item))
-                .ok()
-                .expect("control state incontinuity");
-        };
-
-        if let Some(state) = storage
-            .get_string("saved_tracks")
-            .and_then(|s| serde_json::from_str::<State>(&s).ok())
-        {
-            history::lookup_all_requests(
-                state.active.into_iter().chain(state.queue),
-                session.clone(),
-                send_events,
-            );
-        }
+        let history = db.get_all_history();
+        let queued = db.get_queued();
     }
 
     fn load_fonts(ctx: &egui::Context) {
@@ -208,6 +186,7 @@ impl Control {
                 QueueView {
                     list_view,
                     queue: &mut self.queue,
+                    db: &self.db,
                 }
                 .display(ui);
             }
@@ -216,6 +195,7 @@ impl Control {
                     list_view,
                     queue: &mut self.queue,
                     history: &mut self.history,
+                    db: &self.db,
                 }
                 .display(ui);
             }
@@ -229,6 +209,7 @@ impl Control {
                 // TODO check for duplicates
                 SynthEvent::Organic(req) => {
                     let place = if self.history_fut.is_resolved() {
+                        self.db.add_history(&req);
                         &mut self.history.requests
                     } else {
                         &mut self.out_of_band
@@ -238,11 +219,10 @@ impl Control {
                 }
             };
 
-            self.player.preload(req.track.id);
-
+            self.db.queue(&req);
             if self.active.is_none() {
                 self.active.replace(Active {
-                    start: None,
+                    play_pos: None,
                     request: req,
                 });
                 continue;
@@ -251,6 +231,8 @@ impl Control {
         }
     }
 
+    // this is how the bot requests the current song
+    // TODO make this way less obscure
     fn read_requests(&mut self) {
         while let Ok(resp) = self.requests.try_recv() {
             let _ = resp.send(self.active.as_mut().map(|c| c.request.clone()));
@@ -274,20 +256,86 @@ impl Control {
             self.always_on_top = !self.always_on_top;
             frame.set_always_on_top(self.always_on_top);
         }
-    }
 
-    fn display_active(&mut self, ui: &mut egui::Ui, replace: &mut Option<Request>) {
-        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-            let Some(Active { request, start }) = &mut self.active else {
-                return
+        if ctx.input(|i| i.key_pressed(egui::Key::T)) {
+            let visuals = if ctx.style().visuals.dark_mode {
+                Visuals::light()
+            } else {
+                Visuals::dark()
             };
 
-            let elapsed = start.map(|s| s.elapsed().as_millis() as usize);
+            ctx.set_visuals(visuals);
+        }
+    }
+
+    // TODO this replace stuff is inane
+    fn display_active(&mut self, ui: &mut egui::Ui, replace: &mut Option<Request>) {
+        ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
+            let has_active = self.active.is_some();
+            let Active { request, play_pos } = match &mut self.active {
+                Some(active) => active,
+                None => {
+                    if let Some(item) = self.queue.front().cloned() {
+                        ui.vertical(|ui| {
+                            let fid = TextStyle::Heading.resolve(ui.style());
+                            let space = ui.fonts(|f| f.glyph_width(&fid, ' '));
+
+                            ui.horizontal(|ui| {
+                                ImageView {
+                                    texture_id: item.image_id.and_then(|fid| self.cache.get(fid)),
+                                    size: 64.0,
+                                }
+                                .display(ui);
+
+                                RequestView {
+                                    request: &item,
+                                    fid: &fid,
+                                    space: 0.0,
+                                    active: ui.visuals().strong_text_color(),
+                                    inactive: ui.visuals().text_color(),
+                                }
+                                .display(ui);
+                            });
+
+                            player_control::PlayerControl {
+                                has_active,
+                                player_state: &self.player_state,
+                                player: &mut self.player,
+                                request: &item,
+                                queue: &mut self.queue,
+                                auto_play: &mut self.auto_play,
+                                volume: &mut self.volume,
+                            }
+                            .display(ui, replace);
+                        });
+                        return;
+                    }
+
+                    ui.vertical(|ui| {
+                        ui.heading("nothing in queue, add something");
+                        ui.horizontal(|ui| {
+                            ui.toggle_value(&mut self.auto_play, "Auto");
+                            let mut vol = self.volume.volume.lock();
+                            ui.add(
+                                Slider::new(&mut *vol, 0.0..=1.0)
+                                    .step_by(0.01)
+                                    .trailing_fill(true)
+                                    .show_value(false),
+                            )
+                            .on_hover_text(format!("Volume factor: {vol:.2?}", vol = *vol));
+                        });
+                    });
+                    return;
+                }
+            };
+
+            let elapsed = play_pos.map(|s| s.as_millis() as usize);
 
             let resp = ActiveControl {
                 request,
-                start,
+                play_pos,
                 elapsed,
+                has_active,
                 cache: &mut self.cache,
                 queue: &mut self.queue,
                 auto_play: &mut self.auto_play,
@@ -300,6 +348,7 @@ impl Control {
             InfoPanel {
                 request,
                 cache: &mut self.cache,
+                player: &self.player,
                 elapsed,
                 height: resp.rect.height(),
             }
@@ -310,10 +359,13 @@ impl Control {
     fn handle_replace(&mut self, replace: Option<Request>) {
         let Some(request) = replace else { return };
 
-        let _ = self.active.replace(Active {
-            start: None,
+        if let Some(Active { request, .. }) = self.active.replace(Active {
+            play_pos: None,
             request,
-        });
+        }) {
+            self.db.remove_from_queue(&request);
+        }
+
         self.player.stop();
         let _ = std::mem::take(&mut self.next_playing);
 
@@ -324,7 +376,8 @@ impl Control {
         let Some(Active { request, .. }) = &self.active else { return };
 
         log::info!(
-            "auto-playing: {name} by {artist} requested by: {user} ({user_id})",
+            "playing: {name} by {artist} requested by: \
+            {user} ({user_id})",
             name = request.track.name,
             artist = request.track.artists.iter().map(|c| &c.name).join(", "),
             user = request.user.name,
@@ -337,13 +390,43 @@ impl Control {
 
     fn check_state(&mut self, replace: &mut Option<Request>) {
         match &self.player_state {
-            PlayerState::Playing { req_id, id, .. } => {
+            PlayerState::Playing { .. } => {
                 self.next_playing = NextPlayingState::Playing;
             }
-            PlayerState::EndOfPlaying { req_id, id }
+            PlayerState::EndOfPlaying { .. }
                 if matches!(self.next_playing, NextPlayingState::Playing) && self.auto_play =>
             {
+                if let Some(Active { play_pos, .. }) = &mut self.active {
+                    let _ = play_pos.take();
+                }
+
                 *replace = self.queue.pop_front();
+            }
+            PlayerState::PreloadNextTrack { id, req_id } => {
+                if let Some(req) = self.queue.front() {
+                    self.player.preload(req.track.id);
+                }
+                if let Some(active) = &self.active {
+                    self.player_state = PlayerState::Playing {
+                        req_id: req_id.saturating_sub(1),
+                        pos: active.play_pos.unwrap_or_default().as_millis() as _,
+                        id: active.request.track.id,
+                    };
+                }
+            }
+            &PlayerState::Seeked { pos, id, req_id } => {
+                // TODO this didn't update during a seek if we changed the state
+                // if we're loading, then we should show a ghost or something
+                // or just a spinner, then update to this (so we need an intermediate state)
+                if let Some(Active { play_pos, .. }) = &mut self.active {
+                    log::debug!(
+                        "changing pos from: {play_pos:.2?} -> {pos:.2?}",
+                        pos = Duration::from_millis(pos as _)
+                    );
+                    *play_pos.get_or_insert_with(Duration::default) =
+                        Duration::from_millis(pos as _);
+                }
+                self.player_state = PlayerState::Playing { req_id, pos, id };
             }
             _ => {}
         }
@@ -365,7 +448,12 @@ impl eframe::App for Control {
         self.cache.poll();
 
         if self.history_fut.is_resolved() {
-            self.history.requests.append(&mut self.out_of_band)
+            self.history.requests.reserve(self.out_of_band.len());
+
+            for req in self.out_of_band.drain(..) {
+                self.db.add_history(&req);
+                self.history.requests.push(req)
+            }
         }
 
         self.handle_key_presses(ctx, frame);
@@ -383,25 +471,9 @@ impl eframe::App for Control {
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        #[derive(::serde::Serialize)]
-        struct State<'a> {
-            active: Option<history::HistoryItem<'a>>,
-            queue: Vec<history::HistoryItem<'a>>,
-        }
-
-        storage.set_string("saved_tracks", {
-            serde_json::to_string(&State {
-                active: self
-                    .active
-                    .as_ref()
-                    .map(|Active { request, .. }| history::HistoryItem::map(request)),
-                queue: self.queue.iter().map(history::HistoryItem::map).collect(),
-            })
-            .unwrap()
-        });
-
-        let _ = std::fs::write("history.json", self.history.save());
         storage.set_string("volume", format!("{:.2}", self.volume.get()))
+        // TODO save 'auto' state'
+        // TODO save 'on-top' state
     }
 
     fn persist_egui_memory(&self) -> bool {

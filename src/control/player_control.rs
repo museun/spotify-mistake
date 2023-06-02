@@ -11,6 +11,7 @@ pub struct PlayerControl<'a> {
     pub request: &'a Request,
     pub queue: &'a mut VecDeque<Request>,
     pub auto_play: &'a mut bool,
+    pub has_active: bool,
     pub volume: &'a VolumeState,
 }
 
@@ -26,14 +27,23 @@ impl<'a> PlayerControl<'a> {
                 {
                     if ui.small_button("Play").clicked() {
                         self.player.load(self.request.track.id, true, 0);
+                        if !self.has_active {
+                            if let Some(item) = self.queue.pop_front() {
+                                *replace = Some(item);
+                                *self.auto_play = true;
+                            }
+                        }
                     }
-                } else if self.player_state.is_loading() {
+                } else if self.player_state.is_loading(&self.request.track.id) {
                     ui.spinner();
                 } else if self.player_state.is_playing() && ui.small_button("Pause").clicked() {
                     self.player.pause();
                 }
 
                 if ui.small_button("Skip").clicked() {
+                    if !self.has_active {
+                        self.queue.pop_front();
+                    }
                     *replace = self.queue.pop_front();
                 }
                 ui.toggle_value(self.auto_play, "Auto");

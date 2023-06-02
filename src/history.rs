@@ -4,9 +4,11 @@ use librespot::{
     core::{Session, SpotifyId},
     metadata::{image::ImageSize, Lyrics, Metadata as _, Track},
 };
-use tokio::task::JoinSet;
+use tokio::{sync::mpsc::UnboundedSender, task::JoinSet};
 
-use crate::{async_adapter::Fut, spotify_lyrics::SpotifyLyrics, twitch, Request};
+use crate::{
+    async_adapter::Fut, bot::SynthEvent, db, spotify_lyrics::SpotifyLyrics, twitch, Request,
+};
 
 #[derive(Default)]
 pub struct History {
@@ -14,65 +16,80 @@ pub struct History {
 }
 
 impl History {
-    pub fn load(data: &str, session: &Session) -> Fut<Self> {
-        #[derive(::serde::Deserialize, Default)]
-        struct HistoryLoad {
-            queue: Vec<HistoryItem<'static>>,
-        }
+    pub fn load(
+        session: &Session,
+        db: &db::Connection,
+        replay: UnboundedSender<SynthEvent<Request>>,
+    ) -> Fut<Self> {
+        use twitch_message::messages::types::{Nickname, UserId};
 
-        Fut {
-            fut: lookup_all_requests(
-                serde_json::from_str::<HistoryLoad>(data)
-                    .unwrap_or_default()
-                    .queue,
-                session.clone(),
-                |requests| Self { requests },
-            ),
-            resolved: false,
-        }
-    }
+        let map_db_item = |item: db::Item<'static>| HistoryItem {
+            id: item.id,
+            spotify_id: item.spotify_id,
+            user: Cow::Owned(twitch::User {
+                id: UserId::from(item.sender_id.to_string()),
+                name: Nickname::from(item.sender_name.to_string()),
+                color: db::Item::color_from_u32(item.sender_color),
+            }),
+            added_on: item.added_on,
+        };
 
-    pub fn save(&self) -> String {
-        #[derive(::serde::Serialize)]
-        struct HistorySave<'a> {
-            queue: Vec<HistoryItem<'a>>,
-        }
+        let history_items = db.get_all_history().into_iter().map(map_db_item);
+        let queue_items = db.get_queued().into_iter().map(map_db_item);
 
-        serde_json::to_string(&HistorySave {
-            queue: self.requests.iter().map(HistoryItem::map).collect(),
+        Fut::spawn({
+            let session = session.clone();
+            async move {
+                let history = lookup_all_requests(history_items, session.clone(), |requests| {
+                    Self { requests }
+                });
+                let queue = lookup_all_requests(queue_items, session, move |items| {
+                    items
+                        .into_iter()
+                        .map(SynthEvent::Synthetic)
+                        .try_for_each(|item| replay.send(item))
+                        .ok()
+                        .expect("control state incontinuity");
+                });
+                let (history, _) = tokio::join!(history, queue);
+                history.expect("load history")
+            }
         })
-        .unwrap()
     }
 }
 
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 pub struct HistoryItem<'a> {
+    pub id: uuid::Uuid,
     #[serde(with = "serde::spotify_id")]
-    pub id: SpotifyId,
+    pub spotify_id: SpotifyId,
     pub user: Cow<'a, twitch::User>,
+    pub added_on: time::OffsetDateTime,
 }
 
 impl HistoryItem<'static> {
-    pub async fn lookup(self, session: &Session) -> Request {
-        let track = Track::get(session, &self.id).await.map(Arc::new).unwrap();
-
-        let lyrics = Lyrics::get(session, &self.id).await.ok();
-        let lyrics = lyrics
-            .map(|lyrics| SpotifyLyrics::fix_up(lyrics, track.duration as _))
-            .unwrap_or_default();
-
-        let image_id = track
-            .album
-            .covers
-            .iter()
-            .find_map(|c| (c.size == ImageSize::DEFAULT).then_some(c.id));
-
-        Request {
-            image_id,
-            track,
+    pub async fn lookup(self, session: &Session) -> Option<Request> {
+        let track = Track::get(session, &self.spotify_id)
+            .await
+            .map(Arc::new)
+            .ok()?;
+        let request = Request {
+            id: self.id,
+            added_on: self.added_on,
+            image_id: track
+                .album
+                .covers
+                .iter()
+                .find_map(|c| (c.size == ImageSize::DEFAULT).then_some(c.id)),
             user: self.user.into_owned(),
-            lyrics,
-        }
+            lyrics: Lyrics::get(session, &self.spotify_id)
+                .await
+                .ok()
+                .map(|lyrics| SpotifyLyrics::fix_up(lyrics, track.duration as _))
+                .unwrap_or_default(),
+            track,
+        };
+        Some(request)
     }
 }
 
@@ -89,6 +106,7 @@ where
     tokio::spawn({
         async move {
             let mut set = JoinSet::new();
+            // TODO limit this with a semaphore
             for (id, item) in iterator.into_iter().enumerate() {
                 let session = session.clone();
                 let fut = async move {
@@ -103,7 +121,7 @@ where
                 tree.insert(id, req);
             }
 
-            let deque = tree.into_values().collect();
+            let deque = tree.into_values().flatten().collect();
             let _ = tx.send(map(deque));
         }
     });
@@ -114,7 +132,9 @@ where
 impl<'a> HistoryItem<'a> {
     pub fn map(request: &'a Request) -> Self {
         Self {
-            id: request.track.id,
+            id: request.id,
+            added_on: request.added_on,
+            spotify_id: request.track.id,
             user: Cow::Borrowed(&request.user),
         }
     }
@@ -129,10 +149,10 @@ mod serde {
             S: ::serde::Serializer,
         {
             use serde::ser::Error as _;
-            serializer.serialize_str(
-                &id.to_uri()
-                    .map_err(|err| S::Error::custom(err.to_string()))?,
-            )
+            let data = id
+                .to_uri()
+                .map_err(|err| S::Error::custom(err.to_string()))?;
+            serializer.serialize_str(&data)
         }
 
         pub fn deserialize<'de, D>(deserializer: D) -> Result<SpotifyId, D::Error>

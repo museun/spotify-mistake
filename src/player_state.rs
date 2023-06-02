@@ -31,6 +31,10 @@ pub enum PlayerState {
         pos: u32,
         id: SpotifyId,
     },
+    PreloadNextTrack {
+        req_id: u64,
+        id: SpotifyId,
+    },
     EndOfPlaying {
         req_id: u64,
         id: SpotifyId,
@@ -39,6 +43,21 @@ pub enum PlayerState {
         req_id: u64,
         id: SpotifyId,
     },
+}
+
+impl PlayerState {
+    pub(crate) const fn as_str(&self) -> &'static str {
+        match self {
+            Self::NotPlaying => "NotPlaying",
+            Self::Loading { .. } => "Loading",
+            Self::Playing { .. } => "Playing",
+            Self::Seeked { .. } => "Seeked",
+            Self::Paused { .. } => "Paused",
+            Self::PreloadNextTrack { .. } => "PreloadNextTrack",
+            Self::EndOfPlaying { .. } => "EndOfPlaying",
+            Self::Unavailable { .. } => "Unavailable",
+        }
+    }
 }
 
 impl PlayerState {
@@ -58,20 +77,12 @@ impl PlayerState {
         matches!(self, Self::EndOfPlaying { .. })
     }
 
-    pub const fn is_loading(&self) -> bool {
-        matches!(self, Self::Loading { .. })
+    pub fn is_loading(&self, current: &SpotifyId) -> bool {
+        matches!(self, Self::Loading { id, .. } if id == current)
     }
 
     pub const fn is_unavailable(&self) -> bool {
         matches!(self, Self::Unavailable { .. })
-    }
-
-    pub const fn seeked_position(&self) -> Option<u32> {
-        let Self::Seeked { pos,.. } = self else {
-        return None
-    };
-
-        Some(*pos)
     }
 }
 
@@ -129,6 +140,11 @@ impl TryFrom<PlayerEvent> for PlayerState {
                 req_id: play_request_id,
                 id: track_id,
             },
+
+            PlayerEvent::TimeToPreloadNextTrack {
+                track_id: id,
+                play_request_id: req_id,
+            } => Self::PreloadNextTrack { id, req_id },
 
             PlayerEvent::Seeked {
                 play_request_id,

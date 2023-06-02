@@ -1,4 +1,4 @@
-use egui::{Color32, ScrollArea, TextStyle};
+use egui::{ScrollArea, TextStyle};
 
 use crate::{
     image_cache,
@@ -58,7 +58,7 @@ impl<'a> ListView<'a> {
                         request: next,
                         fid: &fid,
                         space,
-                        active: Color32::WHITE,
+                        active: ui.visuals().strong_text_color(),
                         inactive: ui.visuals().text_color(),
                     }
                     .display(ui);

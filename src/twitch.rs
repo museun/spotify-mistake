@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use egui::Color32;
+
 use tokio::{
     io::{AsyncBufReadExt, AsyncWrite, AsyncWriteExt, BufReader},
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -23,10 +24,12 @@ pub struct User {
     pub color: Color32,
 }
 
+#[derive(Clone)]
 pub struct Config {
     pub name: String,
     pub pass: String,
-    pub channel: String,
+    pub main_channel: String,
+    pub spam_channel: String,
 }
 
 pub struct Writer {
@@ -38,23 +41,39 @@ impl Writer {
         Self { sender }
     }
 
-    pub fn reply(&self, msg_id: impl Into<MsgId>, data: impl ToString) {
+    pub fn reply(&self, target: ChannelTarget, msg_id: impl Into<MsgId>, data: impl ToString) {
         let _ = self.sender.send(WriteKind::Reply {
+            target,
             id: msg_id.into(),
             data: data.to_string(),
         });
     }
 
-    pub fn say(&self, data: impl ToString) {
+    pub fn say(&self, target: ChannelTarget, data: impl ToString) {
         let _ = self.sender.send(WriteKind::Say {
+            target,
             data: data.to_string(),
         });
     }
 }
 
+#[derive(Default, Copy, Clone)]
+pub enum ChannelTarget {
+    #[default]
+    Main,
+    Spam,
+}
+
 pub enum WriteKind {
-    Reply { id: MsgId, data: String },
-    Say { data: String },
+    Reply {
+        target: ChannelTarget,
+        id: MsgId,
+        data: String,
+    },
+    Say {
+        target: ChannelTarget,
+        data: String,
+    },
 }
 
 pub async fn connect(
@@ -174,8 +193,21 @@ pub async fn connect(
 
                         TwitchMessage::GlobalUserState(state) => {
                             log::info!("Twitch is ready");
-                            log::debug!("joining: {channel}", channel = config.channel);
-                            if !write_all(&mut write, join(&config.channel).to_string()).await {
+                            log::debug!(
+                                "joining main channel: {channel}",
+                                channel = config.main_channel
+                            );
+                            if !write_all(&mut write, join(&config.main_channel).to_string()).await
+                            {
+                                continue 'outer;
+                            }
+
+                            log::debug!(
+                                "joining spam channel: {channel}",
+                                channel = config.spam_channel
+                            );
+                            if !write_all(&mut write, join(&config.spam_channel).to_string()).await
+                            {
                                 continue 'outer;
                             }
                         }
@@ -184,12 +216,17 @@ pub async fn connect(
                 }
 
                 Either::Right(Some(kind)) => {
+                    let channel = |target: ChannelTarget| match target {
+                        ChannelTarget::Main => &config.main_channel,
+                        ChannelTarget::Spam => &config.spam_channel,
+                    };
+
                     let data = match kind {
-                        WriteKind::Reply { id, data } => {
-                            reply(&id, &config.channel, &data).to_string() //
+                        WriteKind::Reply { target, id, data } => {
+                            reply(&id, channel(target), &data).to_string() //
                         }
-                        WriteKind::Say { data } => {
-                            privmsg(&config.channel, &data).to_string() //
+                        WriteKind::Say { target, data } => {
+                            privmsg(channel(target), &data).to_string() //
                         }
                     };
 

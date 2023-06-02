@@ -21,7 +21,13 @@ use twitch_message::messages::{
     MsgIdRef, Privmsg, UserIdRef,
 };
 
-use crate::{ext::JoinWith, history, spotify_lyrics::SpotifyLyrics, twitch, Request};
+use crate::{
+    ext::JoinWith,
+    history,
+    spotify_lyrics::SpotifyLyrics,
+    twitch::{self, ChannelTarget},
+    Request,
+};
 
 pub enum SynthEvent<T> {
     Synthetic(T),
@@ -42,6 +48,7 @@ pub struct Selection {
 }
 
 pub struct Bot {
+    pub config: twitch::Config,
     pub events: UnboundedReceiver<Privmsg<'static>>,
     pub writer: twitch::Writer,
     pub produce: UnboundedSender<SynthEvent<Request>>,
@@ -53,6 +60,7 @@ pub struct Bot {
 
 impl Bot {
     pub fn new(
+        config: twitch::Config,
         events: UnboundedReceiver<Privmsg<'static>>,
         writer: twitch::Writer,
         produce: UnboundedSender<SynthEvent<Request>>,
@@ -61,6 +69,7 @@ impl Bot {
         spotify: ClientCredsSpotify,
     ) -> Self {
         Self {
+            config,
             events,
             writer,
             produce,
@@ -77,7 +86,6 @@ impl Bot {
             let msg_id = msg.msg_id().unwrap();
 
             // TODO clear stale entries
-            // TODO refactor this
 
             if self.handle_converstation(&msg, user_id, msg_id).await {
                 continue;
@@ -98,6 +106,10 @@ impl Bot {
         }
     }
 
+    // TODO make this parser more dynamic
+    // TODO show play stats
+    // TODO allow for ~prev
+    // TODO allow for aliases
     async fn handle_send_title(&mut self, msg: &Privmsg<'_>, msg_id: &MsgIdRef) -> bool {
         if msg.data != "~song" {
             return false;
@@ -108,18 +120,21 @@ impl Bot {
         let resp = rx.await.expect("gui is running");
 
         let Some(resp) = resp else {
-            self.writer.reply(msg_id, "nothing is playing");
+            self.writer.reply(ChannelTarget::Main, msg_id, "nothing is playing");
             return true
         };
 
-        self.writer.say(format!(
-            "{name} by {artist} (requested by {user}) \
-             @ https://open.spotify.com/track/{id}",
-            name = resp.track.name,
-            artist = resp.track.artists.iter().map(|c| &c.name).join(", "),
-            user = resp.user.name,
-            id = resp.track.id.to_base62().unwrap(),
-        ));
+        self.writer.say(
+            ChannelTarget::Main,
+            format!(
+                "{name} by {artist} (requested by {user}) \
+                 @ https://open.spotify.com/track/{id}",
+                name = resp.track.name,
+                artist = resp.track.artists.iter().map(|c| &c.name).join(", "),
+                user = resp.user.name,
+                id = resp.track.id.to_base62().unwrap(),
+            ),
+        );
 
         true
     }
@@ -130,6 +145,10 @@ impl Bot {
         user_id: &UserIdRef,
         msg_id: &MsgIdRef,
     ) -> bool {
+        if msg.channel.strip_prefix('#').unwrap_or(&msg.channel) != self.config.spam_channel {
+            return false;
+        }
+
         let Some(parent_msg_id) = msg.reply_parent_msg_id() else { return false };
 
         let mut remove = false;
@@ -166,6 +185,7 @@ impl Bot {
                         .last()
                         .map(|s| match s {
                             "add" => Ok(Self::Add),
+                            // TODO allow more things to get around the message limit
                             "more" => Ok(Self::More),
                             s => s
                                 .parse()
@@ -179,7 +199,7 @@ impl Bot {
             let reply: Reply = match msg.data.parse() {
                 Ok(reply) => reply,
                 Err(err) => {
-                    self.writer.reply(parent_msg_id, err);
+                    self.writer.reply(ChannelTarget::Spam, parent_msg_id, err);
                     return true;
                 }
             };
@@ -199,7 +219,7 @@ impl Bot {
                             name = item.name,
                             artist = item.artist
                         );
-                        self.writer.reply(parent_msg_id, data);
+                        self.writer.reply(ChannelTarget::Spam, parent_msg_id, data);
                     }
                     selection.offset += 3;
                 };
@@ -220,22 +240,29 @@ impl Bot {
                 }
             };
 
-            let id = SpotifyId::from_uri(&item.id).expect("valid id");
+            let spotify_id = SpotifyId::from_uri(&item.id).expect("valid id");
 
-            let req = history::HistoryItem {
-                id,
+            let item = history::HistoryItem {
+                id: uuid::Uuid::new_v4(),
+                added_on: time::OffsetDateTime::now_utc(),
+                spotify_id,
                 user: Cow::Owned(twitch::User {
                     id: user_id.to_owned(),
                     color: msg
                         .color()
-                        .map_or(Color32::WHITE, |twitch_message::Color(r, g, b)| {
+                        .map_or(Color32::GRAY, |twitch_message::Color(r, g, b)| {
                             Color32::from_rgb(r, g, b)
                         }),
                     name: msg.sender.clone().into_owned(),
                 }),
-            }
-            .lookup(&self.session)
-            .await;
+            };
+
+            let Some(req) = item.lookup(&self.session).await else {
+                let data = "cannot look up that item :(";
+                self.writer.say(ChannelTarget::Main, data);
+                self.writer.reply(ChannelTarget::Spam, parent_msg_id, data);
+                return false;
+            };
 
             let data = format!(
                 "added {name} by {artist} \
@@ -244,7 +271,8 @@ impl Bot {
                 artist = req.track.artists.iter().map(|c| &c.name).join(", "),
                 id = req.track.id.to_base62().unwrap(),
             );
-            self.writer.reply(parent_msg_id, data);
+            self.writer.say(ChannelTarget::Main, &data);
+            self.writer.reply(ChannelTarget::Spam, parent_msg_id, data);
 
             let _ = self.produce.send(SynthEvent::Organic(req));
             remove = true
@@ -278,23 +306,26 @@ impl Bot {
             id: msg.user_id().unwrap().to_owned(),
             color: msg
                 .color()
-                .map_or(Color32::WHITE, |twitch_message::Color(r, g, b)| {
+                .map_or(Color32::GRAY, |twitch_message::Color(r, g, b)| {
                     Color32::from_rgb(r, g, b)
                 }),
             name: msg.sender.clone().into_owned(),
         };
 
         let data = format!(
-            "added {name} by {artist} \
-             @ https://open.spotify.com/track/{id}",
+            "added {name} by {artist}
+            @ https://open.spotify.com/track/{id}",
             name = track.name,
             artist = track.artists.iter().map(|c| &c.name).join(", "),
             id = track.id.to_base62().unwrap(),
         );
 
-        self.writer.reply(msg_id, data);
+        self.writer.say(ChannelTarget::Main, &data);
+        self.writer.reply(ChannelTarget::Spam, msg_id, &data);
 
         let _ = self.produce.send(SynthEvent::Organic(Request {
+            id: uuid::Uuid::new_v4(),
+            added_on: time::OffsetDateTime::now_utc(),
             track,
             image_id,
             user,
@@ -305,7 +336,7 @@ impl Bot {
     fn try_parse(input: &str, msg_id: &MsgIdRef, writer: &twitch::Writer) -> Option<SpotifyId> {
         macro_rules! nope {
             ($msg:expr) => {{
-                writer.reply(msg_id, $msg);
+                writer.reply(ChannelTarget::Main, msg_id, $msg);
                 return None;
             }};
         }
@@ -353,7 +384,8 @@ impl Bot {
             Ok(results) => results,
             Err(err) => {
                 log::error!("cannot lookup item: {err}");
-                self.writer.reply(msg_id, "something went wrong :(");
+                self.writer
+                    .reply(ChannelTarget::Spam, msg_id, "something went wrong :(");
                 return;
             }
         };
@@ -384,8 +416,10 @@ impl Bot {
             })
             .enumerate()
         {
+            // TODO allow things other than 'more' to get around message limit
             const HEADER: &str =
-                r#"I found the following, reply with "add" to add it, or "more" to get more."#;
+                r#"I found the following, reply with "add" to add it, \
+                or "more" to get more."#;
 
             if i == 0 {
                 let data = format!(
@@ -393,15 +427,18 @@ impl Bot {
                     name = item.name,
                     artist = item.artist
                 );
-                self.writer.reply(msg_id, data);
+                self.writer.reply(ChannelTarget::Spam, msg_id, data);
             }
 
             selection.items.push(item)
         }
 
         if selection.items.is_empty() {
-            self.writer
-                .reply(msg_id, format!("nothing found for: {req}"));
+            self.writer.reply(
+                ChannelTarget::Spam,
+                msg_id,
+                format!("nothing found for: {req}"),
+            );
             self.selection.remove(user_id);
         }
     }
