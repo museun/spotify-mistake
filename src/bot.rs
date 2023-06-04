@@ -414,8 +414,7 @@ impl Bot {
             })
             .enumerate()
         {
-            const HEADER: &str = r#"I found the following, reply with "add" to add it, \
-                or "more" (or "list") to get more."#;
+            const HEADER: &str = r#"I found the following, reply with "add" to add it, or "more" (or "list") to get more."#;
 
             if i == 0 {
                 let data = format!(
