@@ -51,15 +51,14 @@ pub struct Control {
 
     events: UnboundedReceiver<SynthEvent<Request>>,
     requests: UnboundedReceiver<oneshot::Sender<Option<Request>>>,
-    volume: VolumeState,
 
     player: Player,
     player_state: PlayerState,
     player_events: PlayerEventChannel,
     next_playing: NextPlayingState,
 
-    always_on_top: bool,
-    auto_play: bool,
+    state: ControlState,
+
     tab_view: TabSelection,
 
     db: db::Connection,
@@ -83,16 +82,14 @@ impl Control {
 
         let history_fut = History::load(&session, &db, replay);
 
-        if let Some(storage) = cc.storage {
-            if let Some(factor) = storage
-                .get_string("volume")
-                .and_then(|c| c.parse::<f64>().ok())
-            {
-                volume.set(factor);
-            }
-            // TODO load 'auto' state
-            // TODO load 'ontop' state
-        }
+        let state = cc
+            .storage
+            .map(|storage| ControlState::load(storage, volume.clone()))
+            .unwrap_or_else(|| ControlState {
+                volume,
+                always_on_top: false,
+                auto_play: false,
+            });
 
         Box::new(Self {
             cache: ImageCache::new(session, cc.egui_ctx.clone()),
@@ -108,13 +105,12 @@ impl Control {
 
             player_events: player.get_player_event_channel(),
             player,
-            volume,
             player_state: PlayerState::default(),
 
             next_playing: NextPlayingState::default(),
 
-            always_on_top: false,
-            auto_play: false,
+            state,
+
             tab_view: TabSelection::default(),
 
             db,
@@ -252,8 +248,8 @@ impl Control {
         }
 
         if ctx.input(|i| i.key_pressed(egui::Key::F)) {
-            self.always_on_top = !self.always_on_top;
-            frame.set_always_on_top(self.always_on_top);
+            self.state.always_on_top = !self.state.always_on_top;
+            frame.set_always_on_top(self.state.always_on_top);
         }
 
         if ctx.input(|i| i.key_pressed(egui::Key::T)) {
@@ -302,8 +298,8 @@ impl Control {
                                 player: &mut self.player,
                                 request: &item,
                                 queue: &mut self.queue,
-                                auto_play: &mut self.auto_play,
-                                volume: &mut self.volume,
+                                auto_play: &mut self.state.auto_play,
+                                volume: &mut self.state.volume,
                             }
                             .display(ui, replace);
                         });
@@ -313,8 +309,8 @@ impl Control {
                     ui.vertical(|ui| {
                         ui.heading("nothing in queue, add something");
                         ui.horizontal(|ui| {
-                            ui.toggle_value(&mut self.auto_play, "Auto");
-                            let mut vol = self.volume.volume.lock();
+                            ui.toggle_value(&mut self.state.auto_play, "Auto");
+                            let mut vol = self.state.volume.volume.lock();
                             ui.add(
                                 Slider::new(&mut *vol, 0.0..=1.0)
                                     .step_by(0.01)
@@ -337,10 +333,10 @@ impl Control {
                 has_active,
                 cache: &mut self.cache,
                 queue: &mut self.queue,
-                auto_play: &mut self.auto_play,
+                auto_play: &mut self.state.auto_play,
                 player: &mut self.player,
                 player_state: &self.player_state,
-                volume: &self.volume,
+                volume: &self.state.volume,
             }
             .display(ui, replace);
 
@@ -368,7 +364,7 @@ impl Control {
         self.player.stop();
         let _ = std::mem::take(&mut self.next_playing);
 
-        if !self.auto_play {
+        if !self.state.auto_play {
             return;
         }
 
@@ -393,7 +389,8 @@ impl Control {
                 self.next_playing = NextPlayingState::Playing;
             }
             PlayerState::EndOfPlaying { .. }
-                if matches!(self.next_playing, NextPlayingState::Playing) && self.auto_play =>
+                if matches!(self.next_playing, NextPlayingState::Playing)
+                    && self.state.auto_play =>
             {
                 if let Some(Active { play_pos, .. }) = &mut self.active {
                     let _ = play_pos.take();
@@ -434,6 +431,12 @@ impl Control {
 
 impl eframe::App for Control {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        static INITIALIZED: std::sync::Once = std::sync::Once::new();
+
+        INITIALIZED.call_once(|| {
+            frame.set_always_on_top(self.state.always_on_top);
+        });
+
         ctx.request_repaint_after(Duration::from_secs_f32(1.0 / 30.0));
 
         if let Some(history) = self.history_fut.resolve() {
@@ -470,12 +473,47 @@ impl eframe::App for Control {
     }
 
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
-        storage.set_string("volume", format!("{:.2}", self.volume.get()))
-        // TODO save 'auto' state
-        // TODO save 'on-top' state
+        self.state.save(storage);
     }
 
     fn persist_egui_memory(&self) -> bool {
         false
+    }
+}
+
+struct ControlState {
+    volume: VolumeState,
+    always_on_top: bool,
+    auto_play: bool,
+}
+
+impl ControlState {
+    const VOLUME_KEY: &str = concat!(env!("CARGO_PKG_NAME"), ".volume");
+    const ALWAYS_ON_TOP_KEY: &str = concat!(env!("CARGO_PKG_NAME"), ".auto-play");
+    const AUTO_PLAY_KEY: &str = concat!(env!("CARGO_PKG_NAME"), ".always-on-top");
+
+    fn load(storage: &dyn eframe::Storage, volume: VolumeState) -> Self {
+        fn get<T>(storage: &dyn eframe::Storage, key: &'static str) -> Option<T>
+        where
+            T: std::str::FromStr,
+        {
+            storage.get_string(key).and_then(|c| c.parse().ok())
+        }
+
+        if let Some(factor) = get(storage, Self::VOLUME_KEY) {
+            volume.set(factor)
+        }
+
+        Self {
+            volume,
+            always_on_top: get(storage, Self::ALWAYS_ON_TOP_KEY).unwrap_or_default(),
+            auto_play: get(storage, Self::AUTO_PLAY_KEY).unwrap_or_default(),
+        }
+    }
+
+    fn save(&self, storage: &mut dyn eframe::Storage) {
+        storage.set_string(Self::VOLUME_KEY, format!("{:.2}", self.volume.get()));
+        storage.set_string(Self::ALWAYS_ON_TOP_KEY, self.auto_play.to_string());
+        storage.set_string(Self::AUTO_PLAY_KEY, self.always_on_top.to_string());
     }
 }
